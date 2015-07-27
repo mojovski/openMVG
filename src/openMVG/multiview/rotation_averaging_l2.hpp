@@ -8,6 +8,7 @@
 #ifndef OPENMVG_MULTIVIEW_ROTATION_AVERAGING_L2_H_
 #define OPENMVG_MULTIVIEW_ROTATION_AVERAGING_L2_H_
 
+#include "openMVG/system/timer.hpp"
 #include "openMVG/multiview/rotation_averaging_common.hpp"
 #include <vector>
 

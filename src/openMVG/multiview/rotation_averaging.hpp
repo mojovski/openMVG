@@ -24,7 +24,7 @@
 //- Conference: ICCV.
 //--
 
-
+#include "openMVG/system/timer.hpp"
 #include "openMVG/numeric/numeric.h"
 #include "openMVG/multiview/rotation_averaging_common.hpp"
 #include "openMVG/multiview/rotation_averaging_l1.hpp"

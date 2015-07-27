@@ -43,6 +43,7 @@ bool GlobalSfM_Translation_AveragingSolver::Run(
   matching::PairWiseMatches & tripletWise_matches
 )
 {
+  openMVG::system::Timer timer;
   // Assert relative matches only share index between the relative poseId defined by the global rotations
   matching::PairWiseMatches map_Matches_Ecpy = matches_provider->_pairWise_matches;
   std::set<IndexT> set_remainingIds;
@@ -50,12 +51,15 @@ bool GlobalSfM_Translation_AveragingSolver::Run(
   KeepOnlyReferencedElement(set_remainingIds, map_Matches_Ecpy);
 
   // Compute the translations and save them to vec_initialRijTijEstimates:
+  std::cout << "   Starting ComputePutativeTranslation_EdgesCoverage\n";
+  timer.reset();
   Compute_translations(
     sfm_data,
     normalized_features_provider,
     map_Matches_Ecpy,
     map_globalR,
     tripletWise_matches);
+  std::cout << "  ComputePutativeTranslation_EdgesCoverage took (s): " << timer.elapsed() << std::endl;
 
   // Keep the largest Biedge connected component graph of relative translations
   Pair_Set pairs;
@@ -65,12 +69,18 @@ bool GlobalSfM_Translation_AveragingSolver::Run(
   KeepOnlyReferencedElement(set_remainingIds, vec_initialRijTijEstimates);
   KeepOnlyReferencedElement(set_remainingIds, tripletWise_matches);
 
-  return Translation_averaging(
+
+  std::cout << "   Starting Translation_averaging via LinearProgram\n";
+  timer.reset();
+  bool res_tavg= Translation_averaging(
     eTranslationAveragingMethod,
     sfm_data,
     normalized_features_provider,
     map_Matches_Ecpy,
     map_globalR);
+  std::cout << "  Translation_averaging via LinearProgram took (s): " << timer.elapsed() << std::endl;
+
+  return res_tavg;
 }
 
 bool GlobalSfM_Translation_AveragingSolver::Translation_averaging(
@@ -260,7 +270,7 @@ void GlobalSfM_Translation_AveragingSolver::Compute_translations(
   matching::PairWiseMatches &tripletWise_matches)
 {
   std::cout << "\n-------------------------------" << "\n"
-    << " Relative translations computation: " << "\n"
+    << " GlobalSfM_Translation_AveragingSolver: Relative translations computation: " << "\n"
     << "-------------------------------" << std::endl;
 
   // List putative triplets
@@ -304,6 +314,8 @@ void GlobalSfM_Translation_AveragingSolver::ComputePutativeTranslation_EdgesCove
   RelativeInfo_Vec & vec_initialEstimates,
   matching::PairWiseMatches & newpairMatches)
 {
+  std::cout << "   Starting GlobalSfM_Translation_AveragingSolver::ComputePutativeTranslation_EdgesCoverage\n";
+
   //-- Prepare tracks count per triplets:
   Hash_Map<IndexT, IndexT> map_tracksPerTriplets;
 #ifdef OPENMVG_USE_OPENMP

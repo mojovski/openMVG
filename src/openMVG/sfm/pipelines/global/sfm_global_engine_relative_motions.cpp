@@ -107,6 +107,7 @@ void GlobalSfMReconstructionEngine_RelativeMotions::SetTranslationAveragingMetho
 
 bool GlobalSfMReconstructionEngine_RelativeMotions::Process() {
 
+  openMVG::system::Timer timer;
   //-------------------
   // Only keep the largest biedge connected subgraph
   //-------------------
@@ -120,29 +121,45 @@ bool GlobalSfMReconstructionEngine_RelativeMotions::Process() {
     }
     KeepOnlyReferencedElement(set_remainingIds, _matches_provider->_pairWise_matches);
   }
+  std::cout << std::endl << "  Preparing image clusters (graph::CleanGraph_KeepLargestBiEdge_Nodes) took (s): " << timer.elapsed() << std::endl;
 
+  timer.reset();
   Compute_Relative_Rotations(_relatives_Rt);
+  std::cout << std::endl << "  Computing relative rotations took (s): " << timer.elapsed() << std::endl;
 
+
+  timer.reset();
   if (!Compute_Global_Rotations())
   {
     std::cerr << "GlobalSfM:: Rotation Averaging failure!" << std::endl;
     return false;
   }
+  std::cout << std::endl << "  Computing global rotations took (s): " << timer.elapsed() << std::endl;
+
+  timer.reset();
   if (!Compute_Global_Translations())
   {
     std::cerr << "GlobalSfM:: Translation Averaging failure!" << std::endl;
     return false;
   }
+  std::cout << std::endl << "  Computing global translations took (s): " << timer.elapsed() << std::endl;
+
+  timer.reset();
   if (!Compute_Initial_Structure())
   {
     std::cerr << "GlobalSfM:: Cannot initialize an initial structure!" << std::endl;
     return false;
   }
+  std::cout << std::endl << "  Computing initial structure took (s): " << timer.elapsed() << std::endl;
+
+
+  timer.reset();
   if (!Adjust())
   {
     std::cerr << "GlobalSfM:: Non-linear adjustment failure!" << std::endl;
     return false;
   }
+  std::cout << std::endl << "  Adjusting took (s): " << timer.elapsed() << std::endl;
 
   //-- Export statistics about the SfM process
   if (!_sLoggingFile.empty())
@@ -389,10 +406,11 @@ bool GlobalSfMReconstructionEngine_RelativeMotions::Compute_Initial_Structure()
 // Adjust the scene (& remove outliers)
 bool GlobalSfMReconstructionEngine_RelativeMotions::Adjust()
 {
+  std::cout << "\t" << __FUNCTION__ << "\nStarted." << std::endl;
   // Refine sfm_scene (in a 3 iteration process (free the parameters regarding their incertainty order)):
 
   Bundle_Adjustment_Ceres bundle_adjustment_obj;
-  // - refine only Structure and translations
+  std::cout << "\t" << __FUNCTION__ << "\n refine only Structure and translations" << std::endl;
   bool b_BA_Status = bundle_adjustment_obj.Adjust(_sfm_data, false, true, false);
   if (b_BA_Status)
   {
@@ -403,7 +421,8 @@ bool GlobalSfMReconstructionEngine_RelativeMotions::Adjust()
         ESfM_Data(EXTRINSICS | STRUCTURE));
     }
 
-    // - refine only Structure and Rotations & translations
+    // - refine Structure and Rotations & translations
+    std::cout << "\t" << __FUNCTION__ << "\n refine Structure, rotations and translations" << std::endl;
     b_BA_Status = bundle_adjustment_obj.Adjust(_sfm_data, true, true, false);
     if (b_BA_Status && !_sLoggingFile.empty())
     {
@@ -415,6 +434,7 @@ bool GlobalSfMReconstructionEngine_RelativeMotions::Adjust()
 
   if (b_BA_Status && !_bFixedIntrinsics) {
     // - refine all: Structure, motion:{rotations, translations} and optics:{intrinsics}
+    std::cout << "\t" << __FUNCTION__ << "\n refine Structure, poses, and intrinsics" << std::endl;
     b_BA_Status = bundle_adjustment_obj.Adjust(_sfm_data, true, true, true);
     if (b_BA_Status && !_sLoggingFile.empty())
     {
@@ -425,6 +445,7 @@ bool GlobalSfMReconstructionEngine_RelativeMotions::Adjust()
   }
 
   // Remove outliers (max_angle, residual error)
+  std::cout << "\t" << __FUNCTION__ << "\n Removing outliers" << std::endl;
   const size_t pointcount_initial = _sfm_data.structure.size();
   RemoveOutliers_PixelResidualError(_sfm_data, 4.0);
   const size_t pointcount_pixelresidual_filter = _sfm_data.structure.size();
@@ -445,6 +466,7 @@ bool GlobalSfMReconstructionEngine_RelativeMotions::Adjust()
   // Check that poses & intrinsic cover some measures (after outlier removal)
   const IndexT minPointPerPose = 12; // 6 min
   const IndexT minTrackLenght = 3; // 2 min
+  std::cout << "\t" << __FUNCTION__ << "\n eraseUnstablePosesAndObservations" << std::endl;
   if (eraseUnstablePosesAndObservations(_sfm_data, minPointPerPose, minTrackLenght))
   {
     // TODO: must ensure that track graph is producing a single connected component
@@ -461,6 +483,9 @@ bool GlobalSfMReconstructionEngine_RelativeMotions::Adjust()
         ESfM_Data(EXTRINSICS | STRUCTURE));
     }
   }
+
+
+  std::cout << "\t" << __FUNCTION__ << "\n...DONE!" << std::endl;
 
   return b_BA_Status;
 }

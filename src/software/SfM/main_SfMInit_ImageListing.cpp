@@ -193,7 +193,10 @@ int main(int argc, char **argv)
       ppy = height / 2.0;
     }
     else
+    {
+      std::cout << "Warning. Image " << sImageFilename.c_str() << " not read!" << std::endl;
       continue; // image cannot be read
+    }
 
     std::unique_ptr<Exif_IO> exifReader(new Exif_IO_EasyExif());
     exifReader->open( sImageFilename );

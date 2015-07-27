@@ -18,6 +18,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <stdexcept>
 #include <openMVG/system/nanomsg.hpp>
 #include "progress.hpp"
 
@@ -43,6 +44,7 @@ passing in a heterogenous cluster environment.
 class Socket_Progress_send : public C_Progress
 {
   public:
+    Socket_Progress_send():initialized(false){};
     /** @brief Standard constructor
       * @param expected_count The url and the number of step of the process
       * @param msg_title: The title of the message.
@@ -50,8 +52,15 @@ class Socket_Progress_send : public C_Progress
       * @param ulExpected_count maximum number of counts to reach.
       **/
     explicit Socket_Progress_send ( std::string msg_title, std::string socket_url, unsigned long ulExpected_count):url(socket_url),
-      title(msg_title)
+      title(msg_title),initialized(true)
     { 
+      restart ( ulExpected_count ); 
+    }
+
+    void init(std::string msg_title, std::string socket_url, unsigned long ulExpected_count)
+    { 
+      url=socket_url;
+      title=msg_title;
       restart ( ulExpected_count ); 
     }
 
@@ -65,19 +74,32 @@ class Socket_Progress_send : public C_Progress
       nano_msg_sender=std::shared_ptr<NanoMsgSender>(new NanoMsgSender(url));
     } // restart
 
+    bool isInitialized()
+    {
+      return initialized;
+    }
+
   private:
     /** @brief Sends the update directly to the socket.
     **/
     void inc_tic()
     {
+      if (!initialized)
+      {
+        std::cerr << "Socket_Progress_send needs to be initialized before calling the ++ operator." << std::endl;
+        throw std::runtime_error("Socket_Progress_send needs to be initialized before calling the ++ operator");
+      }
       
+
         std::string msg="{\"progress\": {\"title\": \""+this->title+"\", \"count\":"+std::to_string(_count)+", \"total\": "+std::to_string(_expected_count)+"}}";
+        std::cout << "Sending to socket: " << msg << std::endl;
         nano_msg_sender->sendMsg(msg);
 
     } // inc_tic
 
     std::shared_ptr<NanoMsgSender> nano_msg_sender;
     std::string url, title;
+    bool initialized;
 };
 
 /** @} */

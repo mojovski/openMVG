@@ -75,6 +75,7 @@ bool L2RotationAveraging( size_t nCamera,
   // Output
   std::vector<Mat3> & vec_ApprRotMatrix)
 {
+  openMVG::system::Timer timer;
   const size_t nRotationEstimation = vec_relativeRot.size();
   //--
   // Setup the Action Matrix
@@ -110,14 +111,21 @@ bool L2RotationAveraging( size_t nCamera,
    tripletList.push_back(Eigen::Triplet<double>(3 * cpt + 1, 3 * j + 1, 1.0 * iter->weight));
    tripletList.push_back(Eigen::Triplet<double>(3 * cpt + 2, 3 * j + 2, 1.0 * iter->weight));
   }
+  std::cout << std::endl << "  L2RotationAveraging:: Building triplets took (s): " << timer.elapsed() << std::endl;
 
   // nCamera * 3 because each columns have 3 elements.
+  timer.reset();
   sMat A(nRotationEstimation*3, 3*nCamera);
   A.setFromTriplets(tripletList.begin(), tripletList.end());
+  std::cout << std::endl << "  L2RotationAveraging:: Pushing the triplets to a large matrix (eigen) took (s): " << timer.elapsed() << std::endl;
+
   tripletList.clear();
 
+  timer.reset();
   sMat AtAsparse = A.transpose() * A;
   const Mat AtA = Mat(AtAsparse); // convert to dense
+  std::cout << std::endl << "  L2RotationAveraging:: Converting to dense AtA took (s): " << timer.elapsed() << std::endl;
+
 
   // You can use either SVD or eigen solver (eigen solver will be faster) to solve Ax=0
 
@@ -128,7 +136,9 @@ bool L2RotationAveraging( size_t nCamera,
   //const Vec & NullspaceVector2 = svd.matrixV().col(A.cols()-3);
 
   // Solve Ax=0 => eigen vectors
+  timer.reset();
   Eigen::SelfAdjointEigenSolver<Mat> es(AtA, Eigen::ComputeEigenvectors);
+  std::cout << std::endl << "  L2RotationAveraging:: Solving for self adjoint took (s): " << timer.elapsed() << std::endl;
 
   if (es.info() != Eigen::Success)
   {

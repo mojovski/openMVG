@@ -228,13 +228,21 @@ int main(int argc, char **argv)
     C_Progress_display my_progress_bar( sfm_data.GetViews().size(),
       std::cout, "\n- EXTRACT FEATURES -\n" );
     #ifdef USE_NANOMSG
-    Socket_Progress_send socket_progress_bar("Compute Features", sSocketUrl, sfm_data.GetViews().size());
+    Socket_Progress_send socket_progress_bar;
+    if (sSocketUrl!="")
+      socket_progress_bar.init("Compute Features", sSocketUrl, sfm_data.GetViews().size());
     #endif
 
     for(Views::const_iterator iterViews = sfm_data.views.begin();
         iterViews != sfm_data.views.end();
         ++iterViews, ++my_progress_bar)
     {
+      //update the socket progress updater.
+      #ifdef USE_NANOMSG
+        if (socket_progress_bar.isInitialized())
+          socket_progress_bar+=1;
+      #endif
+
       const View * view = iterViews->second.get();
       const std::string sView_filename = stlplus::create_filespec(sfm_data.s_root_path,
         view->s_Img_path);
@@ -247,17 +255,17 @@ int main(int argc, char **argv)
       if (bForce || !stlplus::file_exists(sFeat) || !stlplus::file_exists(sDesc))
       {
         if (!ReadImage(sView_filename.c_str(), &imageGray))
+        {
+          std::cout << "Warning. Could not read the image: " << sView_filename.c_str() << std::endl;
           continue;
+        }
 
         // Compute features and descriptors and export them to files
         std::unique_ptr<Regions> regions;
         image_describer->Describe(imageGray, regions);
         image_describer->Save(regions.get(), sFeat, sDesc);
       }
-      //update the socket progress updater.
-      #ifdef USE_NANOMSG
-        ++socket_progress_bar;
-      #endif
+      
     }
     std::cout << "Task done in (s): " << timer.elapsed() << std::endl;
   }
